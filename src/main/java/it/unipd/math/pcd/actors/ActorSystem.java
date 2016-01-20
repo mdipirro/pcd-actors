@@ -10,8 +10,8 @@
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
  * <p/>
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  * <p/>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -51,7 +51,8 @@ package it.unipd.math.pcd.actors;
 public interface ActorSystem {
 
     /**
-     * Create an instance of {@code actor} returning a {@link ActorRef reference} to it using the given {@code mode}.
+     * Create an instance of {@code actor} returning a
+     * {@link ActorRef reference} to it using the given {@code mode}.
      *
      * @param actor The type of actor that has to be created
      * @param mode The mode of the actor requested
@@ -81,11 +82,17 @@ public interface ActorSystem {
     void stop();
 
     /**
-     * Possible modes to create an actor. {@code LOCALE} mode is used to create an actor
+     * Possible modes to create an actor. {@code LOCAL} mode is used to create an actor
      * that acts in the local system. {@code REMOTE} mode is used to create remote actors.
      */
     enum ActorMode {
+    	/**
+    	 * Actor that acts in the local system.
+    	 */
         LOCAL,
+        /**
+         * Remote actor.
+         */
         REMOTE
     }
 }

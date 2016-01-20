@@ -1,0 +1,182 @@
+/**
+ * The MIT License (MIT)
+ * <p/>
+ * Copyright (c) 2015 Riccardo Cardin
+ * <p/>
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * <p/>
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * <p/>
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * <p/>
+ * Please, insert description here.
+ *
+ * @author Riccardo Cardin
+ * @version 1.0
+ * @since 1.0
+ */
+
+/**
+ * Please, insert description here.
+ *
+ * @author Riccardo Cardin
+ * @version 1.0
+ * @since 1.0
+ */
+package it.unipd.math.pcd.actors;
+
+import it.unipd.math.pcd.actors.exceptions.UnsupportedMessageException;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+/**
+ * Defines common properties of all actors.
+ *
+ * @author Riccardo Cardin
+ * @version 1.0
+ * @since 1.0
+ * 
+ * @param <T> Generic type that extends Message. It represents the type of the
+ *            message that the actor can receive.
+ */
+public abstract class AbsActor<T extends Message> implements Actor<T> {
+
+    /**
+     * Self-reference of the actor.
+     */
+    protected ActorRef<T> self;
+
+    /**
+     * Sender of the current message.
+     */
+    protected ActorRef<T> sender;
+    
+    /**
+     * The mailbox.
+     */
+    private final MailBox<T> mailbox;
+    
+    /**
+     * Does the actor have to be alive?
+     */
+    private final AtomicBoolean alive;
+    
+    /**
+     * Lock which manages the access to the mailbox.
+     */
+    private final Lock lock; 
+    
+    /**
+     * Condition to check if there are messagesto process. 
+     */
+    private final Condition emptyMailbox;
+    
+    /**
+     * Thread which manages the message system.
+     */
+    private final MessageThread messageThread;
+    
+    /**
+	 * Constructor which starts the message receiving process.
+	 */
+	public AbsActor() {
+		mailbox 		= new ActorMailBox<>();
+		alive 			= new AtomicBoolean(true);
+		lock			= new ReentrantLock();
+		emptyMailbox	= lock.newCondition();
+		messageThread 	= new MessageThread();
+		startMassageProcessing();
+	}
+
+	/**
+	 * Starts the thread which manages the messages in the mailbox.
+	 */
+	private void startMassageProcessing() {
+		messageThread.start();
+	}
+	
+    /**
+     * Sets the self-reference.
+     *
+     * @param self The reference to itself.
+     * @return The actor.
+     */
+    protected final Actor<T> setSelf(final ActorRef<T> self) {
+        this.self = self;
+        return this;
+    }
+    
+    /**
+     * Adds the message to the mailbox.
+     * @param message The message which will be added.
+     * @param sender The sender of the message.
+     */
+    protected final void inbox(final T message, final AbsActorRef<T> sender) {
+    	try {
+	    	lock.lock();
+	    	if (alive.get()) {
+	    		mailbox.addMessage(mailbox.new MailBoxItem(message, sender));
+	    		emptyMailbox.signal();
+	    	}
+    	} finally {
+    		lock.unlock();
+    	}
+    }
+    
+    /**
+     * Stops the message processing process.
+     */
+    protected final void stop() {
+		alive.set(false);
+		messageThread.interrupt();
+		emptyMailbox.signal();
+    }
+    
+    /**
+     * @author 	Matteo Di Pirro
+     * @version 1.0
+     * 
+     * Manages the message processing system. 
+     * 
+     */
+    private class MessageThread extends Thread {
+		/*
+		 * (non-Javadoc)
+		 * @see java.lang.Thread#run()
+		 */
+    	@Override
+    	public void run() {
+    		while (alive.get()) {
+    			try {
+	    			lock.lock();
+	    			while (alive.get() && mailbox.isEmpty()) {
+	    				emptyMailbox.await();
+	    			}
+	    			if (alive.get()) {
+						final ActorMailBox<T>.MailBoxItem item 	= mailbox.getFirst();
+						lock.unlock();
+						sender = item.getSender();
+						receive(item.getMessage());
+	    			}
+    			} catch (InterruptedException e) {
+					lock.unlock();
+				}
+    		}
+    	}
+    }
+}

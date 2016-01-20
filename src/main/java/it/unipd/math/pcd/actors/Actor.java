@@ -10,8 +10,8 @@
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
  * <p/>
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  * <p/>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -40,10 +40,11 @@ package it.unipd.math.pcd.actors;
 /**
  * An actor in the <code>pcd-actor</code> system that receives
  * messages of a defined type.
- *
  * @author Riccardo Cardin
  * @version 1.0
  * @since 1.0
+ * @param <T> Generic type that extends Message. It represents the type of the
+ *            message that the actor can receive.
  */
 public interface Actor<T extends Message> {
 
@@ -51,8 +52,8 @@ public interface Actor<T extends Message> {
      * Defines the interface of the actor.
      *
      * @param message The type of messages the actor can receive
-     * @throws it.unipd.math.pcd.actors.exceptions.UnsupportedMessageException If the message is not supported by
-     *         the actor.
+     * @throws it.unipd.math.pcd.actors.exceptions.UnsupportedMessageException
+     *         If the message is not supported by the actor.
      */
     void receive(T message);
 }

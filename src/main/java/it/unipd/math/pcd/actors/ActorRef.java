@@ -10,8 +10,8 @@
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
  * <p/>
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  * <p/>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -44,11 +44,14 @@ package it.unipd.math.pcd.actors;
  * @author Riccardo Cardin
  * @version 1.0
  * @since 1.0
+ * 
+ * @param <T> Generic type that extends Message. It represents the type of the
+ *            message that the actor can receive.
  */
 public interface ActorRef<T extends Message> extends Comparable<ActorRef> {
 
     /**
-     * Sends a {@code message} to another actor
+     * Sends a {@code message} to another actor.
      *
      * @param message The message to send
      * @param to The actor to which sending the message

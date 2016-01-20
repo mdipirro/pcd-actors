@@ -10,8 +10,8 @@
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
  * <p/>
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  * <p/>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -37,33 +37,161 @@
  */
 package it.unipd.math.pcd.actors;
 
+import it.unipd.math.pcd.actors.exceptions.NoSuchActorException;
+import it.unipd.math.pcd.actors.exceptions.UnsupportedMessageException;
+
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
 /**
  * Defines common properties of all actors.
  *
  * @author Riccardo Cardin
  * @version 1.0
  * @since 1.0
+ * 
+ * @param <T> Generic type that extends Message. It represents the type of the
+ *            message that the actor can receive.
  */
 public abstract class AbsActor<T extends Message> implements Actor<T> {
+	/**
+	 * This enum represents the internal state of the AbsActor.
+	 */
+	private enum ActorState {
+		/**
+		 * CREATED is used to indicate that the Actor has benn created,
+		 * but no message has been sent to him.
+		 */
+		CREATED,
+		/**
+		 * RUNNING is used to indicate that the Actor is up and running.
+		 * In other words, the message processing system has benn started.
+		 */
+		RUNNING,
+		/**
+		 * STOPPED is used to indicate that the Actor has been stopped.
+		 */
+		STOPPED
+	}
 
     /**
-     * Self-reference of the actor
+     * Self-reference of the actor.
      */
     protected ActorRef<T> self;
 
     /**
-     * Sender of the current message
+     * Sender of the current message.
      */
     protected ActorRef<T> sender;
-
+    
     /**
-     * Sets the self-referece.
+     * The mailbox.
+     */
+    private final BlockingQueue<Mail<T>> mailbox;
+
+	/**
+	 * The internal state of the Actor.
+	 */
+	private volatile ActorState actorState;
+
+	/**
+	 * Constructor which starts the message receiving process.
+	 */
+	public AbsActor() {
+		mailbox 	= new LinkedBlockingQueue<>();
+		actorState 	= ActorState.CREATED;
+		// other fields are set to null by the default initialization
+	}
+	
+    /**
+     * Sets the self-reference.
      *
-     * @param self The reference to itself
+     * @param self The reference to itself.
      * @return The actor.
      */
-    protected final Actor<T> setSelf(ActorRef<T> self) {
+    protected final Actor<T> setSelf(final ActorRef<T> self) {
         this.self = self;
         return this;
     }
+
+    /**
+     * Adds the message to the mailbox.
+	 *
+     * @param message The message which will be added.
+     * @param sender The sender of the message.
+	 * @throws NoSuchActorException If the Actor has already been stopped.
+     */
+    protected synchronized final void inbox(final T message, final ActorRef<T> sender) {
+		// If the Actor has already been stopped throw a NoSuchActorException
+		if (actorState == ActorState.STOPPED) {
+			throw new NoSuchActorException("This Actor has already been stopped!");
+		}
+		try {
+			mailbox.put(new Mail<>(message, sender));
+		} catch (InterruptedException exc) {
+			exc.printStackTrace();
+		}
+		// If the Actor isn't running, let's start it!
+		if (actorState == ActorState.CREATED) {
+			((LocalActorRef<T>) self).execute(new MessageManager());
+			actorState = ActorState.RUNNING;
+		}
+    }
+
+    /**
+     * Stops the message processing process.
+	 *
+	 * @throws NoSuchActorException If the Actor has already been stopped.
+     */
+    protected synchronized final void stop() {
+		// If the Actor has already been stopped throws a NoSuchActorException
+		if (actorState == ActorState.STOPPED) {
+			throw new NoSuchActorException("This Actor has already been stopped!");
+		}
+		// Set the Actor's state to STOPPED.
+		actorState = ActorState.STOPPED;
+	}
+
+    /**
+     * @author 	Matteo Di Pirro
+     * @version 1.0
+     *
+     * Manages the message processing system.
+     *
+     */
+    private class MessageManager implements Runnable {
+		/*
+		 * (non-Javadoc)
+		 * @see java.lang.Runnable#run()
+		 */
+    	@Override
+    	public void run() {
+			try {
+				while (actorState == ActorState.RUNNING) {
+					processMessage(mailbox.take());
+				}
+				while (!mailbox.isEmpty()) {
+					processMessage(mailbox.take());
+				}
+			}catch(InterruptedException exc){
+				exc.printStackTrace();
+			}
+		}
+
+		/**
+		 * Processes a mail taken from the mailbox.
+		 *
+		 * @param mail The mail to process.
+		 * @throws UnsupportedMessageException If the message is not supported by the Actor.
+         */
+		public final synchronized void processMessage (Mail<T> mail) {
+			sender = mail.getSender();
+			receive(mail.getMessage());
+		}
+    }
+
+	/* TODO only for test purposes */
+	public int getMailboxSize() {
+		return mailbox.size();
+	}
 }

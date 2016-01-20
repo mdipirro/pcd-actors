@@ -10,8 +10,8 @@
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
  * <p/>
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  * <p/>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -39,7 +39,13 @@ package it.unipd.math.pcd.actors;
 
 import it.unipd.math.pcd.actors.exceptions.NoSuchActorException;
 
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * A map-based implementation of the actor system.
@@ -53,10 +59,31 @@ public abstract class AbsActorSystem implements ActorSystem {
     /**
      * Associates every Actor created with an identifier.
      */
-    private Map<ActorRef<?>, Actor<?>> actors;
+    private final Map<ActorRef<?>, Actor<?>> actors;
+    
+    /**
+     * Lock which manages the access to the Actor's map.
+     */
+    private final Lock lock;
 
-    @Override
-    public ActorRef<? extends Message> actorOf(Class<? extends Actor> actor, ActorMode mode) {
+    /**
+     * Creates an ActorSystem.
+     */
+    public AbsActorSystem() {
+    	actors 	= new ConcurrentHashMap<ActorRef<?>, Actor<?>>();
+    	lock	= new ReentrantLock();
+    }
+    
+    /**
+     * Create an instance of {@code actor} returning a
+     * {@link ActorRef reference} to it using the given {@code mode}.
+     *
+     * @param actor The type of actor that has to be created
+     * @param mode The mode of the actor requested
+     *
+     * @return A reference to the actor
+     */
+    public final ActorRef<? extends Message> actorOf(final Class<? extends Actor> actor, final  ActorMode mode) {
 
         // ActorRef instance
         ActorRef<?> reference;
@@ -64,20 +91,53 @@ public abstract class AbsActorSystem implements ActorSystem {
             // Create the reference to the actor
             reference = this.createActorReference(mode);
             // Create the new instance of the actor
-            Actor actorInstance = ((AbsActor) actor.newInstance()).setSelf(reference);
+            final Actor actorInstance = ((AbsActor) actor.newInstance()).setSelf(reference);
             // Associate the reference to the actor
             actors.put(reference, actorInstance);
-
         } catch (InstantiationException | IllegalAccessException e) {
             throw new NoSuchActorException(e);
         }
         return reference;
     }
 
+    /*
+     * (non-Javadoc)
+     * @see it.unipd.math.pcd.actors.ActorSystem#actorOf(java.lang.Class)
+     */
     @Override
-    public ActorRef<? extends Message> actorOf(Class<? extends Actor> actor) {
+    public final ActorRef<? extends Message> actorOf(final Class<? extends Actor> actor) {
         return this.actorOf(actor, ActorMode.LOCAL);
     }
 
-    protected abstract ActorRef createActorReference(ActorMode mode);
+    /**
+     * Creates an ActorRef which references an Actor. 
+     * @param mode The ActorMode of the Actor which will be created.
+     * @return A reference ({@link ActorRef}) to the Actor.
+     */
+    protected abstract ActorRef<?> createActorReference(ActorMode mode);
+    
+    /**
+     * Takes an ActorRef in input and returns the Actor referenced by the ActorRef.
+     * @param reference The ActorRef reference.
+     * @return The Actor which is referenced by the ActorRef.
+     */
+    public final Actor<? extends Message> getActorByRef(final ActorRef<?> reference) {
+    	Actor actor = actors.get(reference);
+		if (actor != null) {
+			return actor;
+		}
+		throw new NoSuchActorException("This ActorRef doesn't correspond to an Actor.");
+    }
+
+    /**
+     * Return all the references stored by the Actor System.
+     * @return A Set that contains all the ActorRefs.
+     */
+    protected final Set<ActorRef<?>> getReferences() {
+    	return actors.keySet();
+	}
+
+    protected final void remove (ActorRef actor) {
+        actors.remove(actor);
+    }
 }

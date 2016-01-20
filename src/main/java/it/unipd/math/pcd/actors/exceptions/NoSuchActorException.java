@@ -10,8 +10,8 @@
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
  * <p/>
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  * <p/>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -38,7 +38,8 @@
 package it.unipd.math.pcd.actors.exceptions;
 
 /**
- * Thrown to indicate an error during the creation of a new actor of unknown type in a specified
+ * Thrown to indicate an error during the creation of a new
+ * actor of unknown type in a specified
  * {@link it.unipd.math.pcd.actors.ActorSystem actor system}.
  *
  * @author Riccardo Cardin
