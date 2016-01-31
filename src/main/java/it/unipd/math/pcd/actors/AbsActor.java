@@ -40,8 +40,7 @@ package it.unipd.math.pcd.actors;
 import it.unipd.math.pcd.actors.exceptions.NoSuchActorException;
 import it.unipd.math.pcd.actors.exceptions.UnsupportedMessageException;
 
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Callable;
 
 /**
  * Defines common properties of all actors.
@@ -49,7 +48,6 @@ import java.util.concurrent.LinkedBlockingQueue;
  * @author Riccardo Cardin
  * @version 1.0
  * @since 1.0
- * 
  * @param <T> Generic type that extends Message. It represents the type of the
  *            message that the actor can receive.
  */
@@ -64,8 +62,10 @@ public abstract class AbsActor<T extends Message> implements Actor<T> {
 		 */
 		CREATED,
 		/**
-		 * RUNNING is used to indicate that the Actor is up and running.
-		 * In other words, the message processing system has benn started.
+		 * RUNNING is used to indicate that the Actor is up and
+		 * running.
+		 * In other words, the message processing system has been
+		 * started.
 		 */
 		RUNNING,
 		/**
@@ -83,11 +83,11 @@ public abstract class AbsActor<T extends Message> implements Actor<T> {
      * Sender of the current message.
      */
     protected ActorRef<T> sender;
-    
-    /**
+
+	/**
      * The mailbox.
      */
-    private final BlockingQueue<Mail<T>> mailbox;
+    private final MailBox<T> mailbox;
 
 	/**
 	 * The internal state of the Actor.
@@ -98,7 +98,7 @@ public abstract class AbsActor<T extends Message> implements Actor<T> {
 	 * Constructor which starts the message receiving process.
 	 */
 	public AbsActor() {
-		mailbox 	= new LinkedBlockingQueue<>();
+		mailbox 	= new FIFOMailBox<T>();
 		actorState 	= ActorState.CREATED;
 		// other fields are set to null by the default initialization
 	}
@@ -121,20 +121,18 @@ public abstract class AbsActor<T extends Message> implements Actor<T> {
      * @param sender The sender of the message.
 	 * @throws NoSuchActorException If the Actor has already been stopped.
      */
-    protected synchronized final void inbox(final T message, final ActorRef<T> sender) {
-		// If the Actor has already been stopped throw a NoSuchActorException
-		if (actorState == ActorState.STOPPED) {
-			throw new NoSuchActorException("This Actor has already been stopped!");
-		}
-		try {
-			mailbox.put(new Mail<>(message, sender));
-		} catch (InterruptedException exc) {
-			exc.printStackTrace();
-		}
-		// If the Actor isn't running, let's start it!
-		if (actorState == ActorState.CREATED) {
-			((LocalActorRef<T>) self).execute(new MessageManager());
-			actorState = ActorState.RUNNING;
+    protected final void inbox(final T message, final ActorRef<T> sender) {
+		synchronized (this) {
+			// If the Actor has already been stopped throw a NoSuchActorException
+			if (actorState == ActorState.STOPPED) {
+				throw new NoSuchActorException("This Actor has been stopped!");
+			}
+			mailbox.addMessage(new Mail<T>(message, sender));
+			// If the Actor isn't running, let's start it!
+			if (actorState == ActorState.CREATED) {
+				((LocalActorRef<T>) self).execute(new MessageManager());
+				actorState = ActorState.RUNNING;
+			}
 		}
     }
 
@@ -143,13 +141,15 @@ public abstract class AbsActor<T extends Message> implements Actor<T> {
 	 *
 	 * @throws NoSuchActorException If the Actor has already been stopped.
      */
-    protected synchronized final void stop() {
-		// If the Actor has already been stopped throws a NoSuchActorException
-		if (actorState == ActorState.STOPPED) {
-			throw new NoSuchActorException("This Actor has already been stopped!");
+    protected final void stop() {
+		synchronized (this) {
+			// If the Actor has already been stopped throws a NoSuchActorException
+			if (actorState == ActorState.STOPPED) {
+				throw new NoSuchActorException("This Actor has already been stopped!");
+			}
+			// Set the Actor's state to STOPPED.
+			actorState = ActorState.STOPPED;
 		}
-		// Set the Actor's state to STOPPED.
-		actorState = ActorState.STOPPED;
 	}
 
     /**
@@ -159,23 +159,22 @@ public abstract class AbsActor<T extends Message> implements Actor<T> {
      * Manages the message processing system.
      *
      */
-    private class MessageManager implements Runnable {
+    private class MessageManager implements Callable<Void> {
 		/*
 		 * (non-Javadoc)
-		 * @see java.lang.Runnable#run()
+		 * @see java.lang.Callable#call()
 		 */
     	@Override
-    	public void run() {
-			try {
-				while (actorState == ActorState.RUNNING) {
-					processMessage(mailbox.take());
-				}
-				while (!mailbox.isEmpty()) {
-					processMessage(mailbox.take());
-				}
-			}catch(InterruptedException exc){
-				exc.printStackTrace();
+    	public Void call() throws Exception{
+			// The Actor is processing his messages.
+			while (actorState == ActorState.RUNNING) {
+				processMessage(mailbox.getMessage());
 			}
+			// The Actor has been stopped, so he's processing all his remaining messages.
+			while (!mailbox.isEmpty()) {
+				processMessage(mailbox.getMessage());
+			}
+			return null;
 		}
 
 		/**
@@ -184,14 +183,11 @@ public abstract class AbsActor<T extends Message> implements Actor<T> {
 		 * @param mail The mail to process.
 		 * @throws UnsupportedMessageException If the message is not supported by the Actor.
          */
-		public final synchronized void processMessage (Mail<T> mail) {
-			sender = mail.getSender();
-			receive(mail.getMessage());
+		public final void processMessage (final MailBoxItem<T> mail) {
+			synchronized (this) {
+				sender = mail.getSender();
+				receive(mail.getMessage());
+			}
 		}
     }
-
-	/* TODO only for test purposes */
-	public int getMailboxSize() {
-		return mailbox.size();
-	}
 }

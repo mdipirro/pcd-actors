@@ -39,13 +39,9 @@ package it.unipd.math.pcd.actors;
 
 import it.unipd.math.pcd.actors.exceptions.NoSuchActorException;
 
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * A map-based implementation of the actor system.
@@ -60,18 +56,12 @@ public abstract class AbsActorSystem implements ActorSystem {
      * Associates every Actor created with an identifier.
      */
     private final Map<ActorRef<?>, Actor<?>> actors;
-    
-    /**
-     * Lock which manages the access to the Actor's map.
-     */
-    private final Lock lock;
 
     /**
      * Creates an ActorSystem.
      */
     public AbsActorSystem() {
-    	actors 	= new ConcurrentHashMap<ActorRef<?>, Actor<?>>();
-    	lock	= new ReentrantLock();
+    	actors = new ConcurrentHashMap<ActorRef<?>, Actor<?>>();
     }
     
     /**
@@ -114,7 +104,7 @@ public abstract class AbsActorSystem implements ActorSystem {
      * @param mode The ActorMode of the Actor which will be created.
      * @return A reference ({@link ActorRef}) to the Actor.
      */
-    protected abstract ActorRef<?> createActorReference(ActorMode mode);
+    protected abstract ActorRef<?> createActorReference(final ActorMode mode);
     
     /**
      * Takes an ActorRef in input and returns the Actor referenced by the ActorRef.
@@ -137,7 +127,7 @@ public abstract class AbsActorSystem implements ActorSystem {
     	return actors.keySet();
 	}
 
-    protected final void remove (ActorRef actor) {
+    protected final void remove (final ActorRef actor) {
         actors.remove(actor);
     }
 }

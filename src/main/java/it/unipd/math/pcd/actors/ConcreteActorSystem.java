@@ -30,8 +30,9 @@
 
 package it.unipd.math.pcd.actors;
 
-import it.unipd.math.pcd.actors.exceptions.UnsupportedMessageException;
+import it.unipd.math.pcd.actors.exceptions.NoSuchActorException;
 
+import java.util.Map;
 import java.util.concurrent.*;
 
 /**
@@ -44,10 +45,16 @@ public final class ConcreteActorSystem extends AbsActorSystem {
 	/**
 	 * The Executor which manages the Actors.
 	 */
-	private Executor executor;
+	private final ExecutorService executor;
+
+	/**
+	 * A map used for associate an ActorRef to the Future used for wait his termination.
+	 */
+	private final Map<ActorRef<?>, Future<?>> futures;
 
 	public ConcreteActorSystem () {
 		executor = Executors.newCachedThreadPool();
+		futures = new ConcurrentHashMap<ActorRef<?>, Future<?>>();
 	}
 
 	/* (non-Javadoc)
@@ -67,9 +74,13 @@ public final class ConcreteActorSystem extends AbsActorSystem {
      */
 	@Override
 	public void stop(final ActorRef<?> actor) {
-		((AbsActor) getActorByRef(actor)).stop();
+		AbsActor<?> stoppedActor = (AbsActor) getActorByRef(actor);
+		Future<?> future = futures.remove(actor);
 		remove(actor);
-		System.out.println("Actor removed");
+		if (stoppedActor == null || future == null) {
+			throw new NoSuchActorException("The Actor has already been stopped!");
+		}
+		waitTermination(stoppedActor, future);
 	}
 
 	/*
@@ -84,10 +95,38 @@ public final class ConcreteActorSystem extends AbsActorSystem {
 	}
 
 	/**
-	 * Return the ThreadFactory that
-	 * @return
+	 * Executes the task and initialize a Future for it.
+	 * @param task The task which will be executed.
+	 * @param actor The ActorRef associated with the task.
      */
-	protected void execute(final Runnable task) {
-		executor.execute(task);
+	void execute(Callable<Void> task, ActorRef<?> actor) {
+		futures.put(actor, executor.submit(task));
+	}
+
+	/**
+	 * Stop the Actor and wait his termination.
+	 * @param actor The Actor to stop.
+	 * @param future The Future used to wait the termination of the Actor.
+     */
+	private void waitTermination(final AbsActor<?> actor, final Future<?> future) {
+		actor.stop();
+		try {
+			if (future != null && !future.isDone()) {
+				future.get(); // Let's wait the termination
+			}
+		} catch (InterruptedException | ExecutionException exc) {
+			exc.printStackTrace();
+		}
+	}
+
+	/*
+     * (non-Javadoc)
+     * @see Object#finalize()
+     */
+	@Override
+	protected void finalize() throws Throwable {
+		executor.shutdown();
+		stop();
+		super.finalize();
 	}
 }

@@ -30,56 +30,55 @@
 
 package it.unipd.math.pcd.actors;
 
-import java.util.concurrent.Callable;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
- * LocalActorRef represents a reference to a local Actor.
- * @author Matteo Di Pirro
+ * @author 	Matteo Di Pirro
  * @version 1.0
- *
+ * Queue based container that stores al the messages of an actor.
  * @param <T> Generic type that extends Message. It represents the type of the
  *            message that the actor can receive.
  */
-public class LocalActorRef<T extends Message> implements ActorRef<T>{
+public final class FIFOMailBox<T extends Message> implements MailBox {
 	/**
-	 * The ActorSystem that stores the {@link ActorRef}s/{@link Actor}s pairs.
+	 * Mailbox which contains non-also-processed messages. 
 	 */
-	private final AbsActorSystem actorSystem;
+	private final BlockingQueue<MailBoxItem<T>> mailbox = new LinkedBlockingQueue<MailBoxItem<T>>();
 	
-	/**
-	 * Constructor that creates a reference to a ActorMode.LOCAL actor.
-	 * @param actorSystem A reference to the ActorSystem which manage the actor.
-	 */
-	public LocalActorRef(final AbsActorSystem actorSystem) {
-		this.actorSystem = actorSystem;
-	}
-
-	/* (non-Javadoc)
-	 * @see java.lang.Comparable#compareTo(java.lang.Object)
+	/*
+	 * (non-Javadoc)
+	 * @see it.unipd.math.pcd.actors.MailBox#addMessage(it.unipd.math.pcd.actors.MailBox.MailBoxItem)
 	 */
 	@Override
-	public final int compareTo(final ActorRef actorRef) {
-		return this.toString().compareTo(actorRef.toString());
+	public final void addMessage(final MailBoxItem message) {
+		try {
+			mailbox.put(message);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 	}
-
-	/* (non-Javadoc)
-	 * @see it.unipd.math.pcd.actors.ActorRef#send(it.unipd.math.pcd.actors.Message, it.unipd.math.pcd.actors.ActorRef)
+	
+	/*
+	 * (non-Javadoc)
+	 * @see it.unipd.math.pcd.actors.MailBox#getMessag()
 	 */
 	@Override
-	public final void send(final T message, final ActorRef to) {
-		final Actor<?> actor = actorSystem.getActorByRef(to);
-		if (actor instanceof AbsActor<?>) {
-			((AbsActor<T>) actor).inbox(message, (LocalActorRef<T>) this);
+	public final MailBoxItem getMessage() {
+		try {
+			return mailbox.take();
+		} catch (InterruptedException exc) {
+			exc.printStackTrace();
+			return null;
 		}
 	}
-
-	/**
-	 * Executes the task.
-	 * @param task The task which will be executed.
-     */
-	final void execute(final Callable<Void> task) {
-		if (actorSystem instanceof ConcreteActorSystem) {
-			((ConcreteActorSystem) actorSystem).execute(task, this);
-		}
+	
+	/*
+	 * (non-Javadoc)
+	 * @see it.unipd.math.pcd.actors.MailBox#isEmpty()
+	 */
+	@Override
+	public final boolean isEmpty() {
+		return mailbox.isEmpty();
 	}
 }
